@@ -9,14 +9,17 @@ import keras.callbacks as kc
 from keras.preprocessing.image import ImageDataGenerator
 import scipy.ndimage as snd
 import sys
+import cv2
 class Resnet():
-	def __init__ (self,data_source,labels,epoch,batch_size,test_image):
+	def __init__ (self,data_source,labels,epoch,batch_size,weights,test_image):
 		(self.x_train, self.y_train), (self.x_test, self.y_test) = data_source.load_data()
 		self.labels = labels
 		self.model = None
 		self.batch_size = batch_size
 		self.epochs = epoch
-		self.test_image = test_image
+		self.test_image = cv2.imread(test_image)
+		self.test_image = cv2.resize(self.test_image,(32, 32))
+		self.weights = weights
 
 				#['airplane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 	def Resnet(self):
@@ -86,8 +89,8 @@ class Resnet():
 		    act1 = kl.Activation('relu')(skip)
 		gap = kl.GlobalAveragePooling2D()(act1)
 		bn = kl.BatchNormalization()(gap)
-		final_dense = kl.Dense(N)(bn)
-		softmax = kl.Activation('softmax')(final_dense)
+		self.final_dense = kl.Dense(N)(bn)
+		softmax = kl.Activation('softmax')(self.final_dense)
 		self.model = km.Model(inputs=inputs,outputs=softmax)
 		opt = keras.optimizers.rmsprop(lr=0.001,decay=1e-6)
 		self.model.compile(loss='categorical_crossentropy',
@@ -154,10 +157,12 @@ class Resnet():
 		)
 	def runAll(self):
 		self.Resnet()
+
 	def ClassAct_Map(self):
-		new_model = km.Model(inputs=self.model.input,outputs=(bn_3.output,softmax.output))
-		x,y,z = self.test_image.shape
-		last_conv, probs = new_model.predict(image_.reshape((1,x,y,z)))
+		new_model = km.Model(inputs=self.model.input,outputs=(act1.output,softmax.output))
+		new_model.load_weights('checkpoints_aug')
+		last_conv, probs = new_model.predict(image_.reshape((1,32,32,3)))
+		print("Your Image is a: ",self.labels(argmax(probs)))
 		fm_0 = last_conv[0,:,:,0]
 		fm_0_upscaled = snd.zoom(fm_0,4)
 
@@ -166,8 +171,8 @@ class Resnet():
 
 if __name__ == "__main__":
 	labels = ['airplane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-	Resnet = Resnet(kd.cifar10,labels,200,64,None) #Image(sys.argv[1]))
-	Resnet.runAll()
-
+	Resnet = Resnet(kd.cifar10,labels,int(sys.argv[1]),int(sys.argv[2]),sys.argv[3],sys.argv[4]) #Image(sys.argv[1]))
+	#Resnet.runAll()
+	Resnet.ClassAct_Map()
 
 
